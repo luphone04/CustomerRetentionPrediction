@@ -1,0 +1,14 @@
+artifact_uri: file:C:/Users/GPU2SHOP/OneDrive/Desktop/Churn/mlruns/662014160298354994/2aa2e525c0924aaf83270b1ee3534f53/artifacts
+end_time: 1765400242787
+entry_point_name: ''
+experiment_id: '662014160298354994'
+lifecycle_stage: active
+run_id: 2aa2e525c0924aaf83270b1ee3534f53
+run_name: brawny-boar-337
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1765400229157
+status: 3
+tags: []
+user_id: GPU2SHOP

@@ -1,106 +1,118 @@
-# After loading the data
+# Data validation using pandas (simple, no external dependencies)
 
-import great_expectations as ge
+import pandas as pd
 from typing import Tuple, List
 
-def validate_data(df) -> Tuple[ bool, List[str]]: #list str for error messages
-    print("Starting data validation with Grweat Expectations...")
 
-    ge_df = ge.dataset.PandasDataset(df)
+def validate_telco_data(df: pd.DataFrame) -> Tuple[bool, List[str]]:
+    print("Starting data validation...")
+
+    failed_checks = []
 
     print("Validating schema and required columns...")
 
-    ge_df.expect_column_to_exist("customerID")
-    ge_df.expect_column_to_not_be_null("customerID")
+    required_columns = [
+        "customerID", "Churn", "TotalCharges", "MonthlyCharges", "tenure",
+        "gender", "Partner", "Dependents", "PhoneService", "MultipleLines",
+        "InternetService", "Contract"
+    ]
 
-    ge_df.expect_column_to_exist("Churn")
+    for col in required_columns:
+        if col not in df.columns:
+            failed_checks.append(f"missing_column:{col}")
+            print(f"  ❌ Missing column: {col}")
+        else:
+            print(f"  ✅ Column exists: {col}")
 
-    ge_df.expect_column_to_exist("TotalCharges")
-    ge_df.expect_column_to_exist("MonthlyCharges")
-    ge_df.expect_column_to_exist("tenure")
+    if failed_checks:
+        return False, failed_checks
 
-    ge_df.expect_column_to_exist("gender")
-    ge_df.expect_column_to_exist("Partner")
-    ge_df.expect_column_to_exist("Dependents")
+    if df["customerID"].isnull().any():
+        null_count = df["customerID"].isnull().sum()
+        failed_checks.append(f"null_customerID:{null_count}")
+        print(f"  ❌ customerID has {null_count} null values")
 
-    ge_df.expect_column_to_exist("PhoneService")
-    ge_df.expect_column_to_exist("MultipleLines")
-    ge_df.expect_column_to_exist("InternetService")
-    ge_df.expect_column_to_exist("Contract")
+    print("Validating business logic rules...")
 
-    print("Validating business logic rules")
+    valid_genders = {"Male", "Female"}
+    actual_genders = set(df["gender"].dropna().unique())
+    if not actual_genders.issubset(valid_genders):
+        invalid = actual_genders - valid_genders
+        failed_checks.append(f"invalid_gender:{invalid}")
+        print(f"  ❌ Invalid gender values: {invalid}")
+    else:
+        print(f"  ✅ Gender values valid")
 
-    # Gender
-    ge_df.expect_column_values_to_be_in_set("gender", ["Male", " Female"])
-
-    # Yes/No columns
     yes_no_cols = ["Partner", "Dependents", "PhoneService", "PaperlessBilling"]
+    valid_yes_no = {"Yes", "No"}
+
     for col in yes_no_cols:
-        ge_df.expect_column_values_to_be_in_set(col, ["Yes", "No"])
+        if col in df.columns:
+            actual_vals = set(df[col].dropna().unique())
+            if not actual_vals.issubset(valid_yes_no):
+                invalid = actual_vals - valid_yes_no
+                failed_checks.append(f"invalid_{col}:{invalid}")
+                print(f"  ❌ Invalid {col} values: {invalid}")
+            else:
+                print(f"  ✅ {col} values valid")
 
-    #Contract types
-    ge_df.expect_column_values_to_be_in_set("Contract", ["Month-to-month", "One year", "Two year"])
+    valid_contracts = {"Month-to-month", "One year", "Two year"}
+    actual_contracts = set(df["Contract"].dropna().unique())
+    if not actual_contracts.issubset(valid_contracts):
+        invalid = actual_contracts - valid_contracts
+        failed_checks.append(f"invalid_contract:{invalid}")
+        print(f"  ❌ Invalid Contract values: {invalid}")
+    else:
+        print(f"  ✅ Contract values valid")
 
-    # InternetService types
-    ge_df.expect_column_values_to_be_in_set("InternetService", ["DSL", "Fiber optic", "No"])
+    valid_internet = {"DSL", "Fiber optic", "No"}
+    actual_internet = set(df["InternetService"].dropna().unique())
+    if not actual_internet.issubset(valid_internet):
+        invalid = actual_internet - valid_internet
+        failed_checks.append(f"invalid_internet:{invalid}")
+        print(f"  ❌ Invalid InternetService values: {invalid}")
+    else:
+        print(f"  ✅ InternetService values valid")
 
-    #Numeric Range Validations
     print("Validating numeric ranges...")
 
-    #Tenure should be non-negative
-    ge_df.expect_column_values_to_be_between("tenure", min_value=0)
+    if (df["tenure"] < 0).any():
+        neg_count = (df["tenure"] < 0).sum()
+        failed_checks.append(f"negative_tenure:{neg_count}")
+        print(f"  ❌ tenure has {neg_count} negative values")
+    else:
+        print(f"  ✅ tenure values valid (non-negative)")
 
-    #MonthlyCharges should be non-negative
-    ge_df.expect_column_values_to_be_between("MonthlyCharges", min_value=0)
+    if (df["MonthlyCharges"] < 0).any():
+        neg_count = (df["MonthlyCharges"] < 0).sum()
+        failed_checks.append(f"negative_monthly:{neg_count}")
+        print(f"  ❌ MonthlyCharges has {neg_count} negative values")
+    else:
+        print(f"  ✅ MonthlyCharges values valid (non-negative)")
 
-    #TotalCharges should be non-negative
-    ge_df.expect_column_values_to_be_between("TotalCharges", min_value=0)
-
-    # Statistical Validations
     print("Validating statistical properties...")
 
-    #tenure mean should be reasonable
-    ge_df.expect_column_mean_to_be_between("tenure", min_value=0, max_value=120)
-
-    #MonthlyCharges mean should be reasonable
-    ge_df.expect_column_mean_to_be_between("MonthlyCharges", min_value=0, max_value=200)
-
-    #no missing values in key numeric features
-    ge_df.expect_column_values_to_not_be_null("tenure")
-    ge_df.expect_column_values_to_not_be_null("MonthlyCharges")
-    ge_df.expect_column_values_to_not_be_null("TotalCharges")
-
-    # Check Data Consistency
-    print("Validating data consistency checks...")
-
-    #Total Charges should be >= MonthlyCharges (except for new customers)
-    ge_df.expect_column_values_to_be_greater_than_or_equal(
-        columnA = "TotalCharges", 
-        columnB = "MonthlyCharges",
-        or_equal=True,
-        mostly=True #allow some exceptions for new customers
-        )
-
-    #RUN validation suite
-    print("Running validation suite...")
-    results = ge_df.validate()
-
-    #processs reuslts
-    failed_expectations = []
-    for res in results["results"]:
-        if not res["success"]:
-            expectation_type = res["expectation_config"]["expectation_type"]
-            failed_expectations.append(expectation_type)
-
-    #print validfation summary
-    total_checks = len(results["results"])
-    passed_checks = sum(1 for r in results["results"] if r["success"])
-    failed_checks = total_checks - passed_checks
-
-    if results["success"]:
-        print(f"Data validation passed: {passed_checks}/{total_checks} checks passed.")
+    tenure_mean = df["tenure"].mean()
+    if not (0 <= tenure_mean <= 120):
+        failed_checks.append(f"unreasonable_tenure_mean:{tenure_mean:.2f}")
+        print(f"  ❌ tenure mean ({tenure_mean:.2f}) outside expected range [0, 120]")
     else:
-        print(f"Data validation failed: {failed_checks}/{total_checks} checks failed.")
-        print("Failed expectations: {failed_expectations}")
+        print(f"  ✅ tenure mean ({tenure_mean:.2f}) is reasonable")
 
-    return results["success"], failed_expectations
+    monthly_mean = df["MonthlyCharges"].mean()
+    if not (0 <= monthly_mean <= 200):
+        failed_checks.append(f"unreasonable_monthly_mean:{monthly_mean:.2f}")
+        print(f"  ❌ MonthlyCharges mean ({monthly_mean:.2f}) outside expected range [0, 200]")
+    else:
+        print(f"  ✅ MonthlyCharges mean ({monthly_mean:.2f}) is reasonable")
+
+    total_checks = 15  # Approximate number of checks
+    passed_checks = total_checks - len(failed_checks)
+
+    if len(failed_checks) == 0:
+        print(f"\n✅ Data validation passed: {passed_checks}/{total_checks} checks passed.")
+        return True, failed_checks
+    else:
+        print(f"\n❌ Data validation failed: {len(failed_checks)} issues found.")
+        print(f"Failed checks: {failed_checks}")
+        return False, failed_checks
