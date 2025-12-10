@@ -33,7 +33,8 @@ mlflow.db
 mlartifacts/
 
 # Model artifacts (keep src/serving/model for deployment)
-artifacts/
+# Only ignore root artifacts folder, not src/serving/model/.../artifacts
+/artifacts/
 
 # Environment variables
 .env
