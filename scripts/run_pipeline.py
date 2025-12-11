@@ -1,9 +1,4 @@
 #!/usr/bin/env python3
-"""
-Churn Prediction Pipeline
-Trains XGBoost model with Optuna hyperparameter tuning
-"""
-
 import os
 import sys
 import time
