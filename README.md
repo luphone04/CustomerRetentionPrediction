@@ -1,7 +1,9 @@
 # ML-Powered Customer Risk Pipeline
 
 > Predict. Protect. Retain.  An end-to-end MLOps system that identifies at-risk customers before they walk away.
+## Demo UI
 
+![Gradio UI](image.png)
 ## Overview
 
 
@@ -47,9 +49,7 @@ Experimented with three gradient boosting and ensemble methods, optimizing for *
 - Prioritized recall over precision  missing a churner costs more than a false retention offer
 - Threshold tuned to 0.25 for optimal business impact
 
-## Demo UI
 
-![Gradio UI](image.png)
 
 ## Key Insights from EDA
 
@@ -64,8 +64,4 @@ The system is deployed on **AWS ECS Fargate** with:
 - Automated Docker builds via GitHub Actions
 - Image registry on Docker Hub (`richard519/churn-prediction-api:latest`)
 - Serverless compute with automatic scaling
-- Full deployment guide available in [DEPLOYMENT.md](DEPLOYMENT.md)
 
-## License
-
-MIT License
