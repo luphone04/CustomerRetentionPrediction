@@ -1,6 +1,6 @@
 # CustomerRetentionPrediction
 
-> Predict. Protect. Retain.  An end-to-end MLOps system that identifies at-risk customers before they walk away.
+> Predict. Protect. Retain. An end-to-end MLOps system that identifies at-risk customers before they walk away.
 ## Demo UI
 
 ![Gradio UI](image.png)
@@ -14,7 +14,7 @@ Built with MLOps best practices, this system transforms raw customer data into a
 
 ## Key Features
 
-- **High-Recall Model**: Optimized to minimize missed churners (94.1% recall) because the cost of losing a customer far exceeds a false alarm
+- **High-Recall Model**: Optimized to minimize missed churners (94.1% recall) because the cost of losing a customer far exceeds a false alarm (on scenario that rentention budget is low)
 - **End-to-End Pipeline**: From raw data to production API in a single, reproducible workflow
 - **Experiment Tracking**: Full MLflow integration for model versioning and metric comparison
 - **Real-Time Inference**: 5ms prediction latency via FastAPI + interactive Gradio UI
