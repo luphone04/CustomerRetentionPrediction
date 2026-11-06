@@ -58,6 +58,23 @@ Experimented with three gradient boosting and ensemble methods, optimizing for *
 - **Month-to-month contracts** are 5x more likely to churn than two-year contracts
 - **Electronic check** payment method correlates with higher churn risk
 
+## Running Locally
+
+Requires Python 3.11+ (see `.python-version`; the Docker image uses 3.11).
+
+```bash
+python3.11 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements-dev.txt      # serving deps + pytest; use requirements.txt to serve only
+python -m pytest                          # tests run against the real committed model
+python -m uvicorn src.app.main:app --reload --port 8001
+```
+
+- API health: http://127.0.0.1:8001/ · Gradio UI: http://127.0.0.1:8001/ui/ · `POST /predict`
+- The model is loaded from `$MODEL_DIR` if set, else `/app/model` (Docker), else the committed artifact in `src/serving/model/`.
+- `requirements.txt` pins the ML packages to the versions the MLflow model was logged with. Training and notebook extras are in `requirements-train.txt`.
+- The model was saved under Python 3.13, so on 3.11 MLflow logs a Python-version warning. Predictions are identical on 3.11 and 3.13.
+
 ## Deployment
 
 The system is deployed on **AWS ECS Fargate** with:

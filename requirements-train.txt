@@ -1,0 +1,11 @@
+# Training pipeline (scripts/run_pipeline.py) and notebook dependencies.
+# Shares the pinned model runtime so a retrained model is logged with the same
+# versions the server runs.
+-r requirements.txt
+joblib
+optuna
+lightgbm
+matplotlib
+seaborn
+statsmodels
+ipykernel

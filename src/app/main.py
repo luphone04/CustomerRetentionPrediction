@@ -1,7 +1,11 @@
-from fastapi import FastAPI
-from pydantic import BaseModel
+import logging
+
+from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel, Field
 import gradio as gr
 from src.serving.inference import predict
+
+logger = logging.getLogger(__name__)
 
 app = FastAPI(
     title="Customer Retention Intelligence System",
@@ -15,6 +19,8 @@ def root():
 
 class CustomerData(BaseModel):
     gender: str
+    # Trained feature (0/1). Optional for backward compatibility with older clients.
+    SeniorCitizen: int = Field(0, ge=0, le=1)
     Partner: str
     Dependents: str
     PhoneService: str
@@ -36,47 +42,47 @@ class CustomerData(BaseModel):
 @app.post("/predict")
 def get_prediction(data: CustomerData):
     try:
-        result = predict(data.dict())
-        return {"prediction": result}
+        result = predict(data.model_dump())
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e))
     except Exception as e:
-        return {"error": str(e)}
+        logger.exception("Prediction failed")
+        raise HTTPException(status_code=500, detail=f"Prediction failed: {e}")
+    return {"prediction": result}
 
 
-def gradio_predict(
-        gender, Partner, Dependents, PhoneService, MultipleLines,
-        InternetService, OnlineSecurity, OnlineBackup, DeviceProtection,
-        TechSupport, StreamingTV, StreamingMovies, Contract,
-        PaperlessBilling, PaymentMethod, tenure, MonthlyCharges, TotalCharges
-):
-    data = {
-        "gender": gender,
-        "Partner": Partner,
-        "Dependents": Dependents,
-        "PhoneService": PhoneService,
-        "MultipleLines": MultipleLines,
-        "InternetService": InternetService,
-        "OnlineSecurity": OnlineSecurity,
-        "OnlineBackup": OnlineBackup,
-        "DeviceProtection": DeviceProtection,
-        "TechSupport": TechSupport,
-        "StreamingTV": StreamingTV,
-        "StreamingMovies": StreamingMovies,
-        "Contract": Contract,
-        "PaperlessBilling": PaperlessBilling,
-        "PaymentMethod": PaymentMethod,
-        "tenure": int(tenure),
-        "MonthlyCharges": float(MonthlyCharges),
-        "TotalCharges": float(TotalCharges)
-    }
-    result = predict(data)
+# Order of the Gradio input components (and of the example tuples below).
+INPUT_FIELDS = [
+    "gender", "SeniorCitizen", "Partner", "Dependents", "PhoneService", "MultipleLines",
+    "InternetService", "OnlineSecurity", "OnlineBackup", "DeviceProtection",
+    "TechSupport", "StreamingTV", "StreamingMovies", "Contract",
+    "PaperlessBilling", "PaymentMethod", "tenure", "MonthlyCharges", "TotalCharges",
+]
 
-    if "Likely to churn" in result:
-        return f"{result}", "high-risk"
-    else:
-        return f"{result}", "low-risk"
+# Quick-example customers used by the UI buttons. SeniorCitizen is "No", which is
+# what these examples were implicitly sent as before the field was exposed.
+HIGH_RISK_EXAMPLE = ("Female", "No", "No", "No", "Yes", "No", "Fiber optic", "No", "No", "No",
+                     "No", "Yes", "Yes", "Month-to-month", "Yes", "Electronic check", 1, 85.0, 85.0)
+LOW_RISK_EXAMPLE = ("Male", "No", "Yes", "Yes", "Yes", "Yes", "DSL", "Yes", "Yes", "Yes",
+                    "Yes", "No", "No", "Two year", "No", "Credit card (automatic)", 60, 45.0, 2700.0)
 
 
-with gr.Blocks(theme=gr.themes.Soft(), title="Churn Predictor") as demo:
+def gradio_predict(*values):
+    try:
+        data = dict(zip(INPUT_FIELDS, values, strict=True))
+        data["SeniorCitizen"] = 1 if data["SeniorCitizen"] == "Yes" else 0
+        data["tenure"] = int(data["tenure"])
+        data["MonthlyCharges"] = float(data["MonthlyCharges"])
+        data["TotalCharges"] = float(data["TotalCharges"])
+        return predict(data)
+    except (TypeError, ValueError) as e:
+        return f"Invalid input: {e}"
+    except Exception as e:
+        logger.exception("Prediction failed")
+        return f"Prediction failed: {e}"
+
+
+with gr.Blocks(title="Churn Predictor") as demo:
     gr.Markdown("# Customer Churn Predictor")
     gr.Markdown("Predict if a customer will churn based on their profile.")
 
@@ -87,6 +93,7 @@ with gr.Blocks(theme=gr.themes.Soft(), title="Churn Predictor") as demo:
                 with gr.Column():
                     gr.Markdown("### Demographics")
                     gender = gr.Dropdown(["Male", "Female"], label="Gender", value="Male")
+                    SeniorCitizen = gr.Dropdown(["Yes", "No"], label="Senior Citizen", value="No")
                     Partner = gr.Dropdown(["Yes", "No"], label="Partner", value="No")
                     Dependents = gr.Dropdown(["Yes", "No"], label="Dependents", value="No")
 
@@ -132,41 +139,15 @@ with gr.Blocks(theme=gr.themes.Soft(), title="Churn Predictor") as demo:
             high_risk_btn = gr.Button("High Risk Customer", size="sm")
             low_risk_btn = gr.Button("Low Risk Customer", size="sm")
 
+    inputs = [gender, SeniorCitizen, Partner, Dependents, PhoneService, MultipleLines,
+              InternetService, OnlineSecurity, OnlineBackup, DeviceProtection,
+              TechSupport, StreamingTV, StreamingMovies, Contract,
+              PaperlessBilling, PaymentMethod, tenure, MonthlyCharges, TotalCharges]
+
     # Button actions
-    predict_btn.click(
-        fn=gradio_predict,
-        inputs=[gender, Partner, Dependents, PhoneService, MultipleLines,
-                InternetService, OnlineSecurity, OnlineBackup, DeviceProtection,
-                TechSupport, StreamingTV, StreamingMovies, Contract,
-                PaperlessBilling, PaymentMethod, tenure, MonthlyCharges, TotalCharges],
-        outputs=[output]
-    )
-
-    # High risk example
-    def set_high_risk():
-        return ("Female", "No", "No", "Yes", "No", "Fiber optic", "No", "No", "No",
-                "No", "Yes", "Yes", "Month-to-month", "Yes", "Electronic check", 1, 85.0, 85.0)
-
-    high_risk_btn.click(
-        fn=set_high_risk,
-        outputs=[gender, Partner, Dependents, PhoneService, MultipleLines,
-                 InternetService, OnlineSecurity, OnlineBackup, DeviceProtection,
-                 TechSupport, StreamingTV, StreamingMovies, Contract,
-                 PaperlessBilling, PaymentMethod, tenure, MonthlyCharges, TotalCharges]
-    )
-
-    # Low risk example
-    def set_low_risk():
-        return ("Male", "Yes", "Yes", "Yes", "Yes", "DSL", "Yes", "Yes", "Yes",
-                "Yes", "No", "No", "Two year", "No", "Credit card (automatic)", 60, 45.0, 2700.0)
-
-    low_risk_btn.click(
-        fn=set_low_risk,
-        outputs=[gender, Partner, Dependents, PhoneService, MultipleLines,
-                 InternetService, OnlineSecurity, OnlineBackup, DeviceProtection,
-                 TechSupport, StreamingTV, StreamingMovies, Contract,
-                 PaperlessBilling, PaymentMethod, tenure, MonthlyCharges, TotalCharges]
-    )
+    predict_btn.click(fn=gradio_predict, inputs=inputs, outputs=[output])
+    high_risk_btn.click(fn=lambda: HIGH_RISK_EXAMPLE, outputs=inputs)
+    low_risk_btn.click(fn=lambda: LOW_RISK_EXAMPLE, outputs=inputs)
 
 
-app = gr.mount_gradio_app(app, demo, path="/ui")
+app = gr.mount_gradio_app(app, demo, path="/ui", theme=gr.themes.Soft())
